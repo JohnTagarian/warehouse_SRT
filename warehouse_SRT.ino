@@ -33,6 +33,8 @@ int base_speed = 100;
 int max_speed = 200;
 
 
+boolean motor_state;
+
 void setup() {
   Serial.begin(9600);
   while (!Serial); // wait for Leonardo enumeration, others continue immediately
@@ -84,7 +86,24 @@ void loop() {
   //  }
 
   //  compute_pid_line_track();
-  compute_pid_heading();
+  //  compute_pid_heading();
+
+  //  if (Serial.available()) {
+  //    char inchar = Serial.read();
+  //    if (inchar == 'r')motor_state = true;
+  //    else if (inchar == 'o') motor_state = false;
+  //  }
+  //
+  //  if (motor_state) {
+//  compute_pid_heading();
+  //  }
+  //  else {
+  //    digitalWrite(IN1, 0);
+  //    digitalWrite(IN2, 0);
+  //    digitalWrite(IN3, 0);
+  //    digitalWrite(IN4, 0);
+  //  }
+compute_pid_heading();
 }
 
 
@@ -113,6 +132,7 @@ void compute_pid_line_track() {
 
   Serial.print("\tOutput : ");
   Serial.print(output);
+
   if (constrain(base_speed - output, 0, max_speed) == max_speed) {
     digitalWrite(IN1, 1);
     digitalWrite(IN2, 0);
@@ -150,13 +170,19 @@ void compute_pid_line_track() {
 
 
 void compute_pid_heading() {
-
   static unsigned long FIFO_DelayTimer;
   if ((millis() - FIFO_DelayTimer) >= (99)) { // 99ms instead of 100ms to start polling the MPU 1ms prior to data arriving.
     if ( mpu.dmp_read_fifo(false)) FIFO_DelayTimer = millis() ; // false = no interrupt pin attachment required and When data arrives in the FIFO Buffer reset the timer
   }
 
   IMU_error = IMU_setpoint - yaw_value;
+
+  if (IMU_error < - 180) {
+    IMU_error += 360;
+  }
+  if (IMU_error > 180) {
+    IMU_error -= 360;
+  }
 
   // Calculate the error sum and difference
   IMU_error_sum += IMU_error;
@@ -167,7 +193,7 @@ void compute_pid_heading() {
 
   IMU_output = constrain(IMU_output, -150, 150);
   heading_speed = abs(IMU_output);
-  heading_speed = constrain(heading_speed, 85, 150);
+  heading_speed = constrain(heading_speed, 65, 150);
 
 
 
@@ -183,7 +209,7 @@ void compute_pid_heading() {
     digitalWrite(IN4, 0);
   }
   analogWrite(ENA, heading_speed);
-  analogWrite(ENB, heading_speed+10);
+  analogWrite(ENB, heading_speed + 10);
 
 
   Serial.print("ERR : ");
