@@ -1,5 +1,6 @@
-#define interruptPin 19
-#define OFFSETS   -680,      48,     966,      32,      70,     -17
+//#define interruptPin 19
+// non interupt pin set to 14
+#define OFFSETS   -576,     -16,     956,    -166,      79,      83
 
 #include "Simple_MPU6050.h"
 #define MPU6050_DEFAULT_ADDRESS     0x68 // address pin low (GND), default for InvenSense evaluation board
@@ -16,7 +17,7 @@ double IMU_Kd = 0.02;
 
 
 
-double IMU_setpoint = 90;
+double IMU_setpoint = 95;
 double IMU_error, IMU_last_error, IMU_error_sum, IMU_error_diff;
 
 double IMU_output;
@@ -37,8 +38,8 @@ void Print_Values (int16_t *gyro, int16_t *accel, int32_t *quat) {
   mpu.GetYawPitchRoll(ypr, &q, &gravity);
   mpu.ConvertToDegrees(ypr, xyz);
   yaw_value = fmod((360 + xyz[0]), 360);
-  //  Serial.print("Yaw : ");
-  //  Serial.print(yaw_value);
+//  Serial.print("Yaw : ");
+//  Serial.print(yaw_value);
 
 
   //  Serial.print(F("Yaw "));   Serial.print(xyz[0]);   Serial.print(F(",   "));

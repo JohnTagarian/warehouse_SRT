@@ -1,6 +1,7 @@
 #include <MCP3008.h>
 #include <SPI.h>
 #include "IMU.h"
+#include "speed_control.h"
 
 #define CS_PIN 12
 #define CLOCK_PIN 9
@@ -9,22 +10,17 @@
 
 MCP3008 adc(CLOCK_PIN, MOSI_PIN, MISO_PIN, CS_PIN);
 
-// Motor diver define
-#define ENA 7
-#define ENB 8
-#define IN1 31
-#define IN2 35
-#define IN3 47
-#define IN4 49
+
 
 int irValue[8];
-const float Kp = 1.50;
-const float Kd = 0.05;
-const float Ki = 0.00;
 
-float error = 0;
-float lastError = 0;
-float errorSum = 0;
+const float trck_kp = 1.50;
+const float trck_kd = 0.05;
+const float trck_ki = 0.00;
+
+float trck_error = 0;
+float last_trck_err = 0;
+float track_errorSum = 0;
 
 const int numSensors = 8;
 int sensorThreshold = 60;
@@ -33,18 +29,28 @@ int base_speed = 100;
 int max_speed = 200;
 
 
-boolean motor_state;
-
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   while (!Serial); // wait for Leonardo enumeration, others continue immediately
+
+
+  for (int i = 0 ; i < 4 ; i++) {
+
+    pinMode(ENA[i], OUTPUT);
+    pinMode(IN1[i], OUTPUT);
+    pinMode(IN2[i], OUTPUT);
+
+    // Initialize the encoder pins as input
+    pinMode(encoderPinA[i], INPUT_PULLUP); // Line 25
+    pinMode(encoderPinB[i], INPUT_PULLUP);
+  }
+  attachInterrupt(digitalPinToInterrupt(encoderPinA[0]), updateEncoder_Q, RISING);
+  attachInterrupt(digitalPinToInterrupt(encoderPinA[1]), updateEncoder_E, RISING);
+  attachInterrupt(digitalPinToInterrupt(encoderPinA[2]), updateEncoder_A, RISING);
+  attachInterrupt(digitalPinToInterrupt(encoderPinA[3]), updateEncoder_D, RISING);
+
+
   Serial.println(F("Start:"));
-  pinMode(ENA, OUTPUT);
-  pinMode(ENB, OUTPUT);
-  pinMode(IN1, OUTPUT);
-  pinMode(IN2, OUTPUT);
-  pinMode(IN3, OUTPUT);
-  pinMode(IN4, OUTPUT);
   SPI.begin();
   SPI.setClockDivider(SPI_CLOCK_DIV16); // set SPI clock to 1MHz
   SPI.setDataMode(SPI_MODE0);
@@ -53,6 +59,7 @@ void setup() {
 
 
   // Setup the MPU and TwoWire aka Wire library all at once
+
   mpu.begin();
   mpu.Set_DMP_Output_Rate_Hz(100);          // Set the DMP output rate from 200Hz to 5 Minutes.
   //mpu.Set_DMP_Output_Rate_Seconds(10);   // Set the DMP output rate in Seconds
@@ -62,10 +69,6 @@ void setup() {
   mpu.on_FIFO(Print_Values);               // Set callback function that is triggered when FIFO Data is retrieved
   // Setup is complete!
 
-  digitalWrite(IN1, 1);
-  digitalWrite(IN2, 0);
-  digitalWrite(IN3, 0);
-  digitalWrite(IN4, 1);
 }
 
 void loop() {
@@ -85,93 +88,41 @@ void loop() {
   //    Serial.print("\t");
   //  }
 
-  //  compute_pid_line_track();
-  //  compute_pid_heading();
-
-  //  if (Serial.available()) {
-  //    char inchar = Serial.read();
-  //    if (inchar == 'r')motor_state = true;
-  //    else if (inchar == 'o') motor_state = false;
-  //  }
-  //
-  //  if (motor_state) {
-  //  compute_pid_heading();
-  //  }
-  //  else {
-  //    digitalWrite(IN1, 0);
-  //    digitalWrite(IN2, 0);
-  //    digitalWrite(IN3, 0);
-  //    digitalWrite(IN4, 0);
-  //  }
   compute_pid_heading();
 }
 
-// pid line track 
+
+// pid line track
 void compute_pid_line_track() {
-  digitalWrite(IN1, 1);
-  digitalWrite(IN2, 0);
-  digitalWrite(IN3, 0);
-  digitalWrite(IN4, 1);
 
   // Calculate the error
-  error = 0;
+  trck_error = 0;
   for (int i = 0; i < numSensors; i++) {
     if (irValue[i] < sensorThreshold) {
-      error += (i - (numSensors / 2)) * (sensorThreshold - irValue[i] );
+      trck_error += (i - (numSensors / 2)) * (sensorThreshold - irValue[i] );
 
     }
   }
   Serial.print(" Error :");
-  Serial.print(error);
+  Serial.print(trck_error);
 
-  float derivative = error - lastError;
-  errorSum += error;
+  float track_derivative = trck_error - last_trck_err;
+  track_errorSum += trck_error;
 
-  float output = (Kp * error) + (Kd * derivative) + (Ki * errorSum);
-
-
-  Serial.print("\tOutput : ");
-  Serial.print(output);
-
-  if (constrain(base_speed - output, 0, max_speed) == max_speed) {
-    digitalWrite(IN1, 1);
-    digitalWrite(IN2, 0);
-    digitalWrite(IN3, 1);
-    digitalWrite(IN4, 0);
-    analogWrite(ENA, base_speed - 30);
-    analogWrite(ENB, base_speed - 30);
-  }
-  else if (constrain(base_speed + output, 0, max_speed) == max_speed) {
-    digitalWrite(IN1, 0);
-    digitalWrite(IN2, 1);
-    digitalWrite(IN3, 0);
-    digitalWrite(IN4, 1);
-    analogWrite(ENA, base_speed + 30);
-    analogWrite(ENB, base_speed + 30);
-  }
-  else {
-    digitalWrite(IN1, 1);
-    digitalWrite(IN2, 0);
-    digitalWrite(IN3, 0);
-    digitalWrite(IN4, 1);
-    analogWrite(ENA, constrain(base_speed - output, 0, max_speed));
-    analogWrite(ENB, constrain(base_speed + output + 10, 0, max_speed));
-  }
-  //  analogWrite(ENA, constrain(base_speed - output, 0, max_speed));
-  //  analogWrite(ENB, constrain(base_speed + output, 0, max_speed));
+  float track_output = (trck_kp * trck_error) + (trck_kd * track_derivative) + (trck_ki * track_errorSum);
 
 
-  Serial.print("\tENA" + String(constrain(base_speed - output, 0, max_speed)));
-  Serial.println("\tENB" + String(constrain(base_speed + output, 0, max_speed)));
+  //  analogWrite(ENA, constrain(base_speed - track_output, 0, max_speed));
+  //  analogWrite(ENB, constrain(base_speed + track_output, 0, max_speed));
 
 
-  lastError = error;
+  last_trck_err = trck_error;
 }
+
 
 
 // pid heading control
 void compute_pid_heading() {
-  
   static unsigned long FIFO_DelayTimer;
   if ((millis() - FIFO_DelayTimer) >= (99)) { // 99ms instead of 100ms to start polling the MPU 1ms prior to data arriving.
     if ( mpu.dmp_read_fifo(false)) FIFO_DelayTimer = millis() ; // false = no interrupt pin attachment required and When data arrives in the FIFO Buffer reset the timer
@@ -195,23 +146,23 @@ void compute_pid_heading() {
 
   IMU_output = constrain(IMU_output, -150, 150);
   heading_speed = abs(IMU_output);
-  heading_speed = constrain(heading_speed, 50, 150);
+  heading_speed = constrain(heading_speed, 0, 60);
 
 
 
   if (IMU_output < 0) {
-    digitalWrite(IN1, 0);
-    digitalWrite(IN2, 1);
-    digitalWrite(IN3, 0);
-    digitalWrite(IN4, 1);
+
+    compute_pid_motor(0, heading_speed, -1);
+    compute_pid_motor(1, heading_speed, 1);
+    compute_pid_motor(2, heading_speed, -1);
+    compute_pid_motor(3, heading_speed, 1);
   } else {
-    digitalWrite(IN1, 1);
-    digitalWrite(IN2, 0);
-    digitalWrite(IN3, 1);
-    digitalWrite(IN4, 0);
+
+    compute_pid_motor(0, heading_speed, 1);
+    compute_pid_motor(1, heading_speed, -1);
+    compute_pid_motor(2, heading_speed, 1);
+    compute_pid_motor(3, heading_speed, -1);
   }
-  analogWrite(ENA, heading_speed);
-  analogWrite(ENB, heading_speed + 10);
 
 
   Serial.print("ERR : ");
@@ -221,7 +172,6 @@ void compute_pid_heading() {
   Serial.print("\tYaw : ");
   Serial.println(yaw_value);
 
-
   IMU_last_error = IMU_error;
 
   // Calculate the current time and dt
@@ -230,31 +180,4 @@ void compute_pid_heading() {
 
   // Store the current time as the last time
   IMU_last_time = IMU_current_time;
-}
-
-
-
-void forward_left(int speed) {
-  //  Serial.println("Forward left");
-  digitalWrite(IN1, 1);
-  digitalWrite(IN2, 0);
-  analogWrite(ENA, speed);
-}
-void forward_right(int speed) {
-  //  Serial.println("Forward left");
-  digitalWrite(IN3, 0);
-  digitalWrite(IN4, 1);
-  analogWrite(ENB, speed);
-}
-void backward_left(int speed) {
-  Serial.println("backward left");
-  digitalWrite(IN1, 0);
-  digitalWrite(IN2, 1);
-  analogWrite(ENA, speed);
-}
-void backward_right(int speed) {
-  Serial.println("backward left");
-  digitalWrite(IN3, 1);
-  digitalWrite(IN4, 0);
-  analogWrite(ENB, speed);
 }
