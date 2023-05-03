@@ -30,9 +30,6 @@ unsigned long init_time;
 
 // compute speed control
 void compute_pid_motor(int index, int target , int dir, bool enable) {
-  //    return 0 ;
-
-
   if (!check_time_init) {
     init_time = millis();
     check_time_init = true;
@@ -79,43 +76,20 @@ void compute_pid_motor(int index, int target , int dir, bool enable) {
   }
 
 
-  //  Serial.print(target);
-  //  Serial.print(",");
-  //  Serial.println(encoderSpeed[index]);
-  //  Serial.print(index);
-  //  Serial.print("\tSpeed : ");
-  //  Serial.print(encoderSpeed[index]);
-  //  Serial.print("\tCount :");
-  //  Serial.print(encoderCount[index]);
-  //  Serial.print("\tcountdiff : ");
-  //  Serial.print(countDiff);
-  //  Serial.print("\tDT : ");
-  //  Serial.print(deltaTime);
-  //  Serial.print("\tError : ");
-  //  Serial.println(error);
-
-}
-
-void problem() {
-
-  //  digitalWrite(IN1[0], HIGH);
-  //  digitalWrite(IN2[0], LOW);
-  //  analogWrite(ENA[0], 200);
-
-
-  digitalWrite(IN1[1], HIGH);
-  digitalWrite(IN2[1], LOW);
-  analogWrite(ENA[1], 200);
-  //
-  //
-  //  digitalWrite(IN1[2], HIGH);
-  //  digitalWrite(IN2[2], LOW);
-  //  analogWrite(ENA[2], 200);
-  //
-  //
-  digitalWrite(IN1[3], HIGH);
-  digitalWrite(IN2[3], LOW);
-  analogWrite(ENA[3], 200);
+//  Serial.print(target);
+//  Serial.print(",");
+//  Serial.println(encoderSpeed[index]);
+//  Serial.print(index);
+//  Serial.print("\tSpeed : ");
+//  Serial.print(encoderSpeed[index]);
+//  Serial.print("\tCount :");
+//  Serial.print(encoderCount[index]);
+//  Serial.print("\tcountdiff : ");
+//  Serial.print(countDiff);
+//  Serial.print("\tDT : ");
+//  Serial.print(deltaTime);
+//  Serial.print("\tError : ");
+//  Serial.println(error);
 
 }
 
