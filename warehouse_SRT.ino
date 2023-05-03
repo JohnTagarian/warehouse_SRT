@@ -11,6 +11,9 @@
 //MCP3008 adc(CLOCK_PIN, MOSI_PIN, MISO_PIN, CS_PIN);
 
 
+int filterFactor = 10;
+
+
 int track_ir[] = {11, 10, 9, 8};
 int track_val[] = {0, 0, 0, 0};
 
@@ -31,7 +34,7 @@ int base_speed = 100;
 int max_speed = 200;
 int last_track_state = 0;
 
-int thredhold = 63;
+int thredhold = 600;
 int speed_track = 60;
 
 const int wing_thredhold = 60;
@@ -84,132 +87,156 @@ bool cnt_state = false;
 unsigned long pretime_cnt;
 
 void loop() {
-  //  compute_pid_motor(0, 0, 0, false);
-  //  compute_pid_motor(1, speed_track, 1, true);
-  //  compute_pid_motor(2, 0, 0, false);
-  //  compute_pid_motor(3, speed_track, 1, true);
-  compute_line_track();
+  //    compute_pid_motor(0, speed_track, 1, true);
+  //    compute_pid_motor(1, speed_track, 1, true);
+  //    compute_pid_motor(2, speed_track, 1, true);
+  //    compute_pid_motor(3, speed_track, 1, true);
+
+  //    compute_pid_motor(0, speed_track, -1, true);
+  //    compute_pid_motor(1, speed_track, 1, true);
+  //    compute_pid_motor(2, speed_track, -1, true);
+  //    compute_pid_motor(3, speed_track, 1, true);
+  //    problem();
+  //      compute_pid_motor(0, speed_track, -1, true);
+  //    compute_pid_motor(1, speed_track, 1, true);
+  //    compute_pid_motor(2, speed_track, -1, true);
+  //    compute_pid_motor(3, speed_track, 1, true);
+
+  //  Serial.println();
+
+  //    compute_line_track();
 
 
   //  for (int i = 0 ; i < 4 ; i++ ) {
   //    if (i == 2)track_val[i] = analogRead(track_ir[i]) / 10 + 8;
   //    else track_val[i] = analogRead(track_ir[i]) / 10;
   //  }
-  //
-  //  switch (state) {
-  //
-  //    case '1':
-  //      Serial.print(String(track_val[1]) + "," + String(track_val[1]) + "," + String(track_val[2]) + "," + String(track_val[3]));
-  //      while (!((track_val[0] < thredhold && track_val[1]  < thredhold && track_val[2] < thredhold && track_val[3] - 7 < thredhold))) {
-  //        Serial.println("state 1");
-  //        compute_line_track();
-  //      }
-  //      pretime = millis();
-  //      while (millis() - pretime < 600) {
-  //        compute_pid_motor(0, 25, 1, true);
-  //        compute_pid_motor(1, 25, 1, true);
-  //        compute_pid_motor(2, 25, 1, true);
-  //        compute_pid_motor(3, 25, 1, true);
-  //      }
-  //      pretime = millis();
-  //      while (millis() - pretime < 200) {
-  //        wait_speed_control();
-  //      }
-  //      IMU_setpoint = 270;
-  //      while (1) {
-  //        compute_pid_heading();
-  //        if (abs(IMU_error) < 1.0)
-  //          break;
-  //
-  //
-  //      }
-  //      state = '2';
-  //      break;
-  //
-  //    case '2':
-  //      //      Serial.println("state2");
-  //      //      wait_speed_control();
-  //      while (!((track_val[0] < thredhold && track_val[1]  < thredhold && track_val[2] < thredhold && track_val[3] - 7 < thredhold))) {
-  //        Serial.println("state 2");
-  //        compute_line_track();
-  //      }
-  //      pretime = millis();
-  //      while (millis() - pretime < 500) {
-  //        compute_pid_motor(0, 25, 1, true);
-  //        compute_pid_motor(1, 25, 1, true);
-  //        compute_pid_motor(2, 25, 1, true);
-  //        compute_pid_motor(3, 25, 1, true);
-  //      }
-  //      IMU_setpoint = 180;
-  //      while (1) {
-  //        compute_pid_heading();
-  //        if (abs(IMU_error) < 1.0)
-  //          break;
-  //
-  //
-  //      }
-  //      state = '3';
-  //      break;
-  //
-  //    case '3':
-  //      while (cnt < 3) {
-  //        //        Serial.print((analogRead(ir_right) / 10 ));
-  //        //        Serial.print(",");
-  //        //        Serial.print((analogRead(ir_left) / 10 ));
-  //        //        Serial.print("\t");
-  //
-  //        Serial.println("cnt  3 = " + String(cnt));
-  //        if (((analogRead(ir_right) / 10 < 46) ) && (millis() - pretime_cnt) > 800) {
-  //          pretime_cnt = millis();
-  //          cnt++;
-  //        }
-  //        compute_line_track();
-  //      }
-  //      Serial.println("state3");
-  //      state = '4';
-  //      break;
-  //
-  //    case '4':
-  //      pretime = millis();
-  //      if (millis() - pretime > 400) {
-  //        compute_pid_motor(0, 25, 1, true);
-  //        compute_pid_motor(1, 25, 1, true);
-  //        compute_pid_motor(2, 25, 1, true);
-  //        compute_pid_motor(3, 25, 1, true);
-  //      }
-  //      pretime = millis();
-  //      if (millis() - pretime > 200) {
-  //        wait_speed_control();
-  //      }
-  //      IMU_setpoint = 270;
-  //      while (1) {
-  //
-  //        compute_pid_heading();
-  //        if (abs(IMU_error) < 1.0)
-  //          break;
-  //
-  //
-  //
-  //      }
-  //      state = '5';
-  //      break;
-  //    case '5':
-  //      Serial.println("state 5");
-  //      wait_speed_control();
-  //      break;
-  //      //  compute_line_track();
-  //  }
+
+  for (int i = 0 ; i < 4 ; i++ ) {
+    int rawValue;
+    if (i == 3)rawValue = analogRead(track_ir[i])  - 100;
+    else rawValue = analogRead(track_ir[i]);
+    track_val[i] = (track_val[i] * (filterFactor - 1) + rawValue) / filterFactor;;
+
+  }
+
+  switch (state) {
+
+    case '1':
+      Serial.print(String(track_val[1]) + "," + String(track_val[1]) + "," + String(track_val[2]) + "," + String(track_val[3]));
+      while (!((track_val[0] < thredhold && track_val[1]  < thredhold && track_val[2] < thredhold && track_val[3] - 7 < thredhold))) {
+        Serial.println("state 1");
+        compute_line_track();
+      }
+      pretime = millis();
+      while (millis() - pretime < 600) {
+        compute_pid_motor(0, 25, 1, true);
+        compute_pid_motor(1, 25, 1, true);
+        compute_pid_motor(2, 25, 1, true);
+        compute_pid_motor(3, 25, 1, true);
+      }
+      pretime = millis();
+      while (millis() - pretime < 200) {
+        wait_speed_control();
+      }
+      IMU_setpoint = 270;
+      while (1) {
+        compute_pid_heading();
+        if (abs(IMU_error) < 1.0)
+          break;
+
+
+      }
+      state = '2';
+      break;
+
+    case '2':
+      //      Serial.println("state2");
+      //      wait_speed_control();
+      while (!((track_val[0] < thredhold && track_val[1]  < thredhold && track_val[2] < thredhold && track_val[3] - 7 < thredhold))) {
+        Serial.println("state 2");
+        compute_line_track();
+      }
+      pretime = millis();
+      while (millis() - pretime < 500) {
+        compute_pid_motor(0, 25, 1, true);
+        compute_pid_motor(1, 25, 1, true);
+        compute_pid_motor(2, 25, 1, true);
+        compute_pid_motor(3, 25, 1, true);
+      }
+      IMU_setpoint = 180;
+      while (1) {
+        compute_pid_heading();
+        if (abs(IMU_error) < 1.0)
+          break;
+
+
+      }
+      state = '3';
+      break;
+
+    case '3':
+      while (cnt < 3) {
+        //        Serial.print((analogRead(ir_right) / 10 ));
+        //        Serial.print(",");
+        //        Serial.print((analogRead(ir_left) / 10 ));
+        //        Serial.print("\t");
+
+        Serial.println("cnt  3 = " + String(cnt));
+        if (((analogRead(ir_right) / 10 < 46) ) && (millis() - pretime_cnt) > 800) {
+          pretime_cnt = millis();
+          cnt++;
+        }
+        compute_line_track();
+      }
+      Serial.println("state3");
+      state = '4';
+      break;
+
+    case '4':
+      pretime = millis();
+      if (millis() - pretime > 400) {
+        compute_pid_motor(0, 25, 1, true);
+        compute_pid_motor(1, 25, 1, true);
+        compute_pid_motor(2, 25, 1, true);
+        compute_pid_motor(3, 25, 1, true);
+      }
+      pretime = millis();
+      if (millis() - pretime > 200) {
+        wait_speed_control();
+      }
+      IMU_setpoint = 270;
+      while (1) {
+
+        compute_pid_heading();
+        if (abs(IMU_error) < 1.0)
+          break;
+
+
+
+      }
+      state = '5';
+      break;
+    case '5':
+      Serial.println("state 5");
+      wait_speed_control();
+      break;
+      //  compute_line_track();
+  }
 }
 
 
 // pid line track
 void compute_line_track() {
   for (int i = 0 ; i < 4 ; i++ ) {
-    if (i == 2)track_val[i] = analogRead(track_ir[i]) / 10 + 8;
-    else track_val[i] = analogRead(track_ir[i]) / 10;
+    int rawValue;
+    if (i == 3)rawValue = analogRead(track_ir[i])  - 100;
+    else rawValue = analogRead(track_ir[i]);
+    track_val[i] = (track_val[i] * (filterFactor - 1) + rawValue) / filterFactor;;
+
   }
 
-  Serial.print(String(track_val[1]) + "," + String(track_val[1]) + "," + String(track_val[2]) + "," + String(track_val[3]));
+  Serial.print(String(track_val[0]) + "," + String(track_val[1]) + "," + String(track_val[2]) + "," + String(track_val[3]));
   if (track_val[0] < thredhold && track_val[1]  < thredhold && track_val[2] < thredhold && track_val[3] - 7 < thredhold) {
     Serial.println("Find state");
     compute_pid_motor(0, 0, 0, false);
