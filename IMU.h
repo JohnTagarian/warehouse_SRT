@@ -1,6 +1,6 @@
 //#define interruptPin 19
 // non interupt pin set to 14
-#define OFFSETS   -576,     -16,     956,    -166,      79,      83
+#define OFFSETS   -526,    -176,     950,      28,      71,     -31
 
 #include "Simple_MPU6050.h"
 #define MPU6050_DEFAULT_ADDRESS     0x68 // address pin low (GND), default for InvenSense evaluation board
@@ -17,7 +17,7 @@ double IMU_Kd = 0.02;
 
 
 
-double IMU_setpoint = 95;
+double IMU_setpoint = 90;
 double IMU_error, IMU_last_error, IMU_error_sum, IMU_error_diff;
 
 double IMU_output;
