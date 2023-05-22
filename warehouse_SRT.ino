@@ -39,6 +39,8 @@ bool cnt_state = false;
 
 unsigned long pretime_cnt;
 
+unsigned long prev_time;
+
 
 int sensorThreshold = 670;
 void setup() {
@@ -91,8 +93,8 @@ void setup() {
   //  TIMSK1 |= (1 << TOIE1);   // enable timer overflow interrupt
   //  interrupts();             // enable all interrupts
   //--------------------------timer setup
-  //    while (millis() < 4000);
-  //  delay(2000);
+  while (millis() < 10000);
+  //    delay(2/000);
   init_time = millis();
 }
 double distance;
@@ -103,7 +105,10 @@ bool check_bridge;
 
 //unsigned long pretime_wing;
 
+int distance_setpoint;
+
 void loop() {
+
   //  IMU_setpoint = 0;
   //  fixed_axes(60);
   //  Serial.println(get_distance());
@@ -151,10 +156,10 @@ void loop() {
 
   //  Serial.println(IMU_raw_pitch);
   //  Serial.println();
-  //  compute_pid_motor(0, speed_track, -1, true);
-  //  compute_pid_motor(1, speed_track, 1, true);
+  //  compute_pid_motor(0, speed_track , -1, true);
+  //  compute_pid_motor(1, speed_track , 1, true);
   //  compute_pid_motor(2, speed_track, 1, true);
-  //  compute_pid_motor(3, speed_track, -1, true);
+  //  compute_pid_motor(3, speed_track - 10, -1, true);
   //  Serial.println();
   //  compute_line_track();
 
@@ -174,112 +179,169 @@ void loop() {
 
 
 
+  switch (state) {
+    case '1':
+      Serial.println("state 1");
+      IMU_setpoint = 0;
+      cross_bridge();
+      if (check_bridge)state = '2';
+      distance_cnt[2] = 0;
+      distance_cnt[3] = 0;
+      break;
+    case '2':
+      Serial.println("state 2 :" + String(get_distance()));
+      distance_setpoint = 1700;
+      fixed_axes(60);
+      if (abs(distance_setpoint - get_distance()) < 20) {
+        state = '3';
+        distance_cnt[2] = 0;
+        distance_cnt[3] = 0;
+      }
+      break;
+
+    case '3':
+      Serial.println("state 3");
+      IMU_setpoint = 93;
+      distance_setpoint = 2750;
+      while (1) {
+        compute_pid_heading();
+        if (abs(IMU_error) < 1.0)
+          break;
+      }
+
+      fixed_setpoint = 90;
+      while (1) {
+        Serial.println("while state3 : " + String(get_distance()));
+        fixed_axes(60);
+        if (abs(distance_setpoint - get_distance()) < 20) {
+          break;
+        }
+      }
+      state = '4';
+      distance_cnt[2] = 0;
+      distance_cnt[3] = 0;
+      break;
+
+    case '4':
+      Serial.println("state 4");
+      IMU_setpoint = 0;
+      while (1) {
+        compute_pid_heading();
+        if (abs(IMU_error) < 1.0)
+          break;
+      }
+
+      fixed_setpoint = 0;
+      distance_setpoint = 2800;
+      while (1) {
+        Serial.println("while state4 : " + String(get_distance()));
+
+        fixed_axes(60);
+        if (abs(distance_setpoint - get_distance()) < 20) {
+          break;
+        }
+      }
+      distance_cnt[2] = 0;
+      distance_cnt[3] = 0;
+      state = '5';
+      break;
+
+    case '5':
+      IMU_setpoint = 90;
+      while (1) {
+        compute_pid_heading();
+        if (abs(IMU_error) < 1.0)
+          break;
+      }
+
+      fixed_setpoint = 90;
+      distance_setpoint = 1800;
+
+      while (1) {
+        Serial.println("while state5 : " + String(get_distance()));
+        fixed_axes(60);
+        if (abs(distance_setpoint - get_distance()) < 20) {
+          break;
+        }
+      }
+
+      IMU_setpoint = 90;
+      while (1) {
+        Serial.println("Newset --------------------------------");
+        compute_pid_heading();
+        if (abs(IMU_error) < 1.0) {};
+        break;
+      }
 
 
+      prev_time = millis();
+      while (millis() - prev_time < 2000) {
+        wait_speed_control();
+      }
 
-  //  switch (state) {
-  //
-  //    case '1':
-  //      Serial.print(String(track_val[1]) + "," + String(track_val[1]) + "," + String(track_val[2]) + "," + String(track_val[3]));
-  //      while (!((track_val[0] < thredhold && track_val[1]  < thredhold && track_val[2] < thredhold && track_val[3] - 7 < thredhold))) {
-  //        Serial.println("state 1");
-  //        compute_line_track();
-  //      }
-  //      pretime = millis();
-  //      while (millis() - pretime < 600) {
-  //        compute_pid_motor(0, 25, 1, true);
-  //        compute_pid_motor(1, 25, 1, true);
-  //        compute_pid_motor(2, 25, 1, true);
-  //        compute_pid_motor(3, 25, 1, true);
-  //      }
-  //      pretime = millis();
-  //      while (millis() - pretime < 200) {
-  //        wait_speed_control();
-  //      }
-  //      IMU_setpoint = 270;
-  //      while (1) {
-  //        compute_pid_heading();
-  //        if (abs(IMU_error) < 1.0)
-  //          break;
-  //
-  //
-  //      }
-  //      state = '2';
-  //      break;
-  //
-  //    case '2':
-  //      //      Serial.println("state2");
-  //      //      wait_speed_control();
-  //      while (!((track_val[0] < thredhold && track_val[1]  < thredhold && track_val[2] < thredhold && track_val[3] - 7 < thredhold))) {
-  //        Serial.println("state 2");
-  //        compute_line_track();
-  //      }
-  //      pretime = millis();
-  //      while (millis() - pretime < 500) {
-  //        compute_pid_motor(0, 25, 1, true);
-  //        compute_pid_motor(1, 25, 1, true);
-  //        compute_pid_motor(2, 25, 1, true);
-  //        compute_pid_motor(3, 25, 1, true);
-  //      }
-  //      IMU_setpoint = 180;
-  //      while (1) {
-  //        compute_pid_heading();
-  //        if (abs(IMU_error) < 1.0)
-  //          break;
-  //
-  //
-  //      }
-  //      state = '3';
-  //      break;
-  //
-  //    case '3':
-  //      while (cnt < 3) {
-  //        //        Serial.print((analogRead(ir_right) / 10 ));
-  //        //        Serial.print(",");
-  //        //        Serial.print((analogRead(ir_left) / 10 ));
-  //        //        Serial.print("\t");
-  //
-  //        Serial.println("cnt  3 = " + String(cnt));
-  //        if (((analogRead(ir_right) / 10 < 46) ) && (millis() - pretime_cnt) > 800) {
-  //          pretime_cnt = millis();
-  //          cnt++;
-  //        }
-  //        compute_line_track();
-  //      }
-  //      Serial.println("state3");
-  //      state = '4';
-  //      break;
-  //
-  //    case '4':
-  //      pretime = millis();
-  //      if (millis() - pretime > 400) {
-  //        compute_pid_motor(0, 25, 1, true);
-  //        compute_pid_motor(1, 25, 1, true);
-  //        compute_pid_motor(2, 25, 1, true);
-  //        compute_pid_motor(3, 25, 1, true);
-  //      }
-  //      pretime = millis();
-  //      if (millis() - pretime > 200) {
-  //        wait_speed_control();
-  //      }
-  //      IMU_setpoint = 270;
-  //      while (1) {
-  //
-  //        compute_pid_heading();
-  //        if (abs(IMU_error) < 1.0)
-  //          break;
-  //
-  //
-  //
-  //      }
-  //      state = '5';
-  //      break;
-  //    case '5':
-  //      Serial.println("state 5");
-  //      wait_speed_control();
-  //      break;
-  //      //  compute_line_track();
-  //  }
+      state = '6';
+      distance_cnt[2] = 0;
+      distance_cnt[3] = 0;
+
+      break;
+
+    case '6':
+      Serial.println("state 6" + String(get_distance()));
+      distance_setpoint = 700;
+      compute_pid_motor(0, speed_track , 1, true);
+      compute_pid_motor(1, speed_track , -1, true);
+      compute_pid_motor(2, speed_track, -1, true);
+      compute_pid_motor(3, speed_track , 1, true);
+      if (abs(distance_setpoint - get_distance()) < 20) {
+        state = '7';
+      }
+
+      break;
+
+    case '7':
+      Serial.println("state 7");
+      IMU_setpoint = 94;
+      while (1) {
+        Serial.println("Newset --------------------------------");
+        compute_pid_heading();
+        if (abs(IMU_error) < 1.0)
+          break;
+      }
+      state = '8';
+      distance_cnt[2] = 0;
+      distance_cnt[3] = 0;
+
+      prev_time = millis();
+      while (millis() - prev_time < 2000) {
+        wait_speed_control();
+      }
+      break;
+
+    case '8':
+      Serial.println("state 8");
+      distance_setpoint = 700;
+      compute_pid_motor(0, speed_track , 1, true);
+      compute_pid_motor(1, speed_track , -1, true);
+      compute_pid_motor(2, speed_track, -1, true);
+      compute_pid_motor(3, speed_track , 1, true);
+      if (abs(distance_setpoint - get_distance()) < 20) {
+        state = '9';
+      }
+      break;
+
+    case '9':
+      IMU_setpoint = 94;
+      while (1) {
+        Serial.println("case9 Newset --------------------------------");
+        compute_pid_heading();
+        if (abs(IMU_error) < 1.0)
+          break;
+      }
+      break;
+
+  }
+
+
 }
 
 
@@ -456,6 +518,7 @@ void fixed_axes(int fixed_speed) {
   // Store the current time as the last time
   fixed_last_time = fixed_current_time;
 }
+
 
 
 // pid heading control
