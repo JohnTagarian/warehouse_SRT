@@ -1,6 +1,6 @@
 //#define interruptPin 19
 // non interupt pin set to 14
-#define OFFSETS   -526,    -176,     950,      28,      71,     -31
+#define OFFSETS   -566,    -188,     968,      21,      75,     -34
 
 #include "Simple_MPU6050.h"
 #define MPU6050_DEFAULT_ADDRESS     0x68 // address pin low (GND), default for InvenSense evaluation board
@@ -18,14 +18,25 @@ double IMU_Kd = 0.02;
 
 
 double IMU_setpoint = 90;
-double IMU_error, IMU_last_error, IMU_error_sum, IMU_error_diff;
+double fixed_setpoint = 0;
+double IMU_error, IMU_last_error, IMU_error_sum, IMU_error_diff, fixed_error, fixed_integral, fixed_derivative, fixed_last_error;
 
 double IMU_output;
 
-unsigned long IMU_current_time, IMU_last_time;
-double IMU_dt;
+unsigned long IMU_current_time, IMU_last_time, fixed_current_time, fixed_last_time;
+double IMU_dt, fixed_dt;
 
 int heading_speed;
+int motor_speed;
+
+//3.8
+double fixed_kp = 3.8;
+double fixed_ki = 0.01;
+double fixed_kd = 0.02;
+
+
+float IMU_raw_pitch;
+float IMU_raw_val;
 
 
 void Print_Values (int16_t *gyro, int16_t *accel, int32_t *quat) {
@@ -38,20 +49,21 @@ void Print_Values (int16_t *gyro, int16_t *accel, int32_t *quat) {
   mpu.GetYawPitchRoll(ypr, &q, &gravity);
   mpu.ConvertToDegrees(ypr, xyz);
   yaw_value = fmod((360 + xyz[0]), 360);
-//  Serial.print("Yaw : ");
-//  Serial.print(yaw_value);
+  IMU_raw_val = xyz[0];
+  IMU_raw_pitch = xyz[1];
 
-
-  //  Serial.print(F("Yaw "));   Serial.print(xyz[0]);   Serial.print(F(",   "));
+  //  Serial.print("Yaw : ");
+  //  Serial.print(yaw_value);
+  //    Serial.print(F("Yaw "));   Serial.print(xyz[0]);   Serial.print(F(",   "));
   //  Serial.print(F("Pitch ")); Serial.print(xyz[1]);   Serial.print(F(",   "));
-  //  Serial.print(F("Roll "));  Serial.print(xyz[2]);   Serial.print(F(",   "));
-  //  Serial.print(F("ax "));    Serial.print(accel[0]); Serial.print(F(",   "));
-  //  Serial.print(F("ay "));    Serial.print(accel[1]); Serial.print(F(",   "));
-  //  Serial.print(F("az "));    Serial.print(accel[2]); Serial.print(F(",   "));
-  //  Serial.print(F("gx "));    Serial.print(gyro[0]);  Serial.print(F(",   "));
-  //  Serial.print(F("gy "));    Serial.print(gyro[1]);  Serial.print(F(",   "));
-  //  Serial.print(F("gz "));    Serial.print(gyro[2]);  Serial.print(F("\n"));
-  //  Serial.println();
+  //    Serial.print(F("Roll "));  Serial.print(xyz[2]);   Serial.print(F(",   "));
+  //    Serial.print(F("ax "));    Serial.print(accel[0]); Serial.print(F(",   "));
+  //    Serial.print(F("ay "));    Serial.print(accel[1]); Serial.print(F(",   "));
+  //    Serial.print(F("az "));    Serial.print(accel[2]); Serial.print(F(",   "));
+  //    Serial.print(F("gx "));    Serial.print(gyro[0]);  Serial.print(F(",   "));
+  //    Serial.print(F("gy "));    Serial.print(gyro[1]);  Serial.print(F(",   "));
+  //    Serial.print(F("gz "));    Serial.print(gyro[2]);  Serial.print(F("\n"));
+  //    Serial.println();
 }
 
 void call_IMU() {
