@@ -1,5 +1,11 @@
 #include "IMU.h"
 #include "speed_control.h"
+#include <Servo.h>
+
+
+#define GRIPPER_PIN 9
+#define JOINT_PIN 8
+#define STBTN A15
 
 
 int track_ir[] = {A3, A2, A1, A0};
@@ -40,15 +46,26 @@ bool cnt_state = false;
 unsigned long pretime_cnt;
 
 unsigned long prev_time;
-
-
 int sensorThreshold = 670;
+
+
+Servo gripper;
+Servo joint;
+
+
 void setup() {
   Serial.begin(115200);
   while (!Serial); // wait for Leonardo enumeration, others continue immediately
 
   pinMode(ir_left, INPUT_PULLUP);
   pinMode(ir_right, INPUT_PULLUP);
+  pinMode(STBTN, INPUT_PULLUP);
+  gripper.attach(GRIPPER_PIN);
+  joint.attach(JOINT_PIN);
+  gripper.write(15);
+  joint.write(0);
+
+
   for (int i = 0 ; i < 4 ; i++) {
 
     pinMode(ENA[i], OUTPUT);
@@ -78,36 +95,55 @@ void setup() {
   mpu.CalibrateMPU();                      // Calibrates the MPU.
   mpu.load_DMP_Image();                    // Loads the DMP image into the MPU and finish configuration.
   mpu.on_FIFO(Print_Values);               // Set callback function that is triggered when FIFO Data is retrieved
-  // Setup is complete!
 
+  //  while (millis() < 30000) {
+  //    call_IMU();
+  //    //    Serial.println(yaw_value);
+  //  }
 
+  while (1) {
+    //    Serial.println(digitalRead(STBTN));
+    //    wait_speed_control();
+    call_IMU();
+    if (!digitalRead(STBTN)) {
+      delay(10);
+      if (!digitalRead(STBTN)) break;
+    }
 
-  //  noInterrupts();           // disable all interrupts
-  //  TCCR1A = 0;
-  //  TCCR1B = 0;
-  //  timer1_counter = 59286;   // preload timer 65536-16MHz/256/2Hz (34286 for 0.5sec) (59286 for 0.1sec)
-  //
-  //
-  //  TCNT1 = timer1_counter;   // preload timer
-  //  TCCR1B |= (1 << CS12);    // 256 prescaler
-  //  TIMSK1 |= (1 << TOIE1);   // enable timer overflow interrupt
-  //  interrupts();             // enable all interrupts
-  //--------------------------timer setup
-  while (millis() < 10000);
+  }
   //    delay(2/000);
   init_time = millis();
+  Serial.println("PICK");
+  //  prev_time = millis();
+  //  pick_obj(prev_time);
+
+
+
 }
+
 double distance;
 bool s = false;
 int cnt_imu = 0;
 int fil_wing_val;
 bool check_bridge;
-
-//unsigned long pretime_wing;
-
 int distance_setpoint;
 
 void loop() {
+
+
+  //  prev_time = millis();
+  //  Serial.println("PICK");
+  //  pick_obj(prev_time);
+  //
+  //  prev_time = millis();
+  //  while (millis() - prev_time < 3000) {
+  Serial.println();
+  //      compute_pid_motor(0, speed_track , 1, true);
+  //      compute_pid_motor(1, speed_track, 1, true);
+  //      compute_pid_motor(2, speed_track, 1, true);
+  //      compute_pid_motor(3, speed_track , 1, true);
+  //  }
+
 
   //  IMU_setpoint = 0;
   //  fixed_axes(60);
@@ -123,43 +159,13 @@ void loop() {
 
   //  distance = (double)((distance_cnt[1] / 510) * (arc));
   //  Serial.println(distance);
-  //  if (state == '1') {
-  //
-  //    pid_track();
-  //
-  //  }
-  //  else if (dmeters >= (double)1.3) {
-  //    state = '2';
-  //    wait_speed_control();
-  //  }
-  //  if (state == '2') {
-  //    wait_speed_control();
-  //  }
-  //  if (millis() - pretime_wing > 50 && millis() - init_time > 3000) {
-  //    pretime_wing = millis();
-  //
-  //    int raw_wing = analogRead(ir_right);
-  //    fil_wing_val = (fil_wing_val * (filterFactor - 1) + raw_wing) / filterFactor;
-  //
-  //    if (fil_wing_val > wing_thredhold && state == '1') {
-  //        pid_track();
-  //
-  //      Serial.println("IF : " + String(fil_wing_val));
-  //    }
-  //    else {
-  //      Serial.println("Else : " + String(fil_wing_val));
-  //      //      state = '2';
-  //      wait_speed_control();
-  //    }
-  //  }
+
 
 
   //  Serial.println(IMU_raw_pitch);
   //  Serial.println();
-  //  compute_pid_motor(0, speed_track , -1, true);
-  //  compute_pid_motor(1, speed_track , 1, true);
-  //  compute_pid_motor(2, speed_track, 1, true);
-  //  compute_pid_motor(3, speed_track - 10, -1, true);
+
+
   //  Serial.println();
   //  compute_line_track();
 
@@ -190,131 +196,90 @@ void loop() {
       break;
     case '2':
       Serial.println("state 2 :" + String(get_distance()));
-      distance_setpoint = 1700;
+      distance_setpoint = 1600;
       fixed_axes(60);
       if (abs(distance_setpoint - get_distance()) < 20) {
         state = '3';
-        distance_cnt[2] = 0;
-        distance_cnt[3] = 0;
       }
       break;
 
     case '3':
       Serial.println("state 3");
-      IMU_setpoint = 93;
-      distance_setpoint = 2750;
-      while (1) {
-        compute_pid_heading();
-        if (abs(IMU_error) < 1.0)
-          break;
-      }
 
-      fixed_setpoint = 90;
-      while (1) {
-        Serial.println("while state3 : " + String(get_distance()));
-        fixed_axes(60);
-        if (abs(distance_setpoint - get_distance()) < 20) {
-          break;
-        }
-      }
+      plan_robot(93);
+      run_robot(1550, 90);
+
       state = '4';
-      distance_cnt[2] = 0;
-      distance_cnt[3] = 0;
       break;
 
     case '4':
       Serial.println("state 4");
-      IMU_setpoint = 0;
-      while (1) {
-        compute_pid_heading();
-        if (abs(IMU_error) < 1.0)
-          break;
-      }
+      plan_robot(0);
+      run_robot(1850, 0);
 
-      fixed_setpoint = 0;
-      distance_setpoint = 2800;
-      while (1) {
-        Serial.println("while state4 : " + String(get_distance()));
 
-        fixed_axes(60);
-        if (abs(distance_setpoint - get_distance()) < 20) {
-          break;
-        }
-      }
-      distance_cnt[2] = 0;
-      distance_cnt[3] = 0;
       state = '5';
       break;
 
+
     case '5':
-      IMU_setpoint = 90;
-      while (1) {
-        compute_pid_heading();
-        if (abs(IMU_error) < 1.0)
-          break;
-      }
+      Serial.println("state 5----------------------");
+      plan_robot(90);
+      run_robot(700, 90);
+      state = '6';
+      break;
 
-      fixed_setpoint = 90;
-      distance_setpoint = 1800;
+    case '6':
+      Serial.println("state 6");
 
-      while (1) {
-        Serial.println("while state5 : " + String(get_distance()));
-        fixed_axes(60);
-        if (abs(distance_setpoint - get_distance()) < 20) {
-          break;
-        }
-      }
-
-      IMU_setpoint = 90;
-      while (1) {
-        Serial.println("Newset --------------------------------");
-        compute_pid_heading();
-        if (abs(IMU_error) < 1.0) {};
-        break;
-      }
-
-
+      run_slide_robot(600, 94, 1);
       prev_time = millis();
       while (millis() - prev_time < 2000) {
         wait_speed_control();
       }
 
-      state = '6';
-      distance_cnt[2] = 0;
-      distance_cnt[3] = 0;
-
-      break;
-
-    case '6':
-      Serial.println("state 6" + String(get_distance()));
-      distance_setpoint = 700;
-      compute_pid_motor(0, speed_track , 1, true);
-      compute_pid_motor(1, speed_track , -1, true);
-      compute_pid_motor(2, speed_track, -1, true);
-      compute_pid_motor(3, speed_track , 1, true);
-      if (abs(distance_setpoint - get_distance()) < 20) {
-        state = '7';
+      run_slide_robot(600, 94, 1);
+      prev_time = millis();
+      while (millis() - prev_time < 2000) {
+        wait_speed_control();
       }
 
+      run_slide_robot(600, 94, 1);
+      prev_time = millis();
+      while (millis() - prev_time < 2000) {
+        wait_speed_control();
+      }
+
+      run_slide_robot(600, 94, 1);
+      prev_time = millis();
+      while (millis() - prev_time < 2000) {
+        wait_speed_control();
+      }
+
+      run_slide_robot(600, 94, 1);
+      prev_time = millis();
+      while (millis() - prev_time < 2000) {
+        wait_speed_control();
+      }
+
+      run_slide_robot(600, 94, 1);
+      prev_time = millis();
+      while (millis() - prev_time < 2000) {
+        wait_speed_control();
+      }
+
+      run_slide_robot(600, 94, 1);
+      prev_time = millis();
+      while (millis() - prev_time < 2000) {
+        wait_speed_control();
+      }
+      state = '7';
       break;
 
     case '7':
       Serial.println("state 7");
-      IMU_setpoint = 94;
-      while (1) {
-        Serial.println("Newset --------------------------------");
-        compute_pid_heading();
-        if (abs(IMU_error) < 1.0)
-          break;
-      }
-      state = '8';
-      distance_cnt[2] = 0;
-      distance_cnt[3] = 0;
+      wait_speed_control();
 
-      prev_time = millis();
-      while (millis() - prev_time < 2000) {
-        wait_speed_control();
-      }
       break;
 
     case '8':
@@ -330,13 +295,7 @@ void loop() {
       break;
 
     case '9':
-      IMU_setpoint = 94;
-      while (1) {
-        Serial.println("case9 Newset --------------------------------");
-        compute_pid_heading();
-        if (abs(IMU_error) < 1.0)
-          break;
-      }
+      plan_robot(94);
       break;
 
   }
@@ -346,128 +305,24 @@ void loop() {
 
 
 // pid line track
-void compute_line_track() {
-  for (int i = 0 ; i < 4 ; i++ ) {
-    if (i == 2)track_val[i] = analogRead(track_ir[i]) / 10 + 8;
-    else track_val[i] = analogRead(track_ir[i]) / 10;
-  }
 
-  Serial.print(String(track_val[1]) + "," + String(track_val[1]) + "," + String(track_val[2]) + "," + String(track_val[3]));
-  if (track_val[0] < thredhold && track_val[1]  < thredhold && track_val[2] < thredhold && track_val[3] - 7 < thredhold) {
-    Serial.println("Find state");
-    compute_pid_motor(0, 0, 0, false);
-    compute_pid_motor(1, 0, 0, false);
-    compute_pid_motor(2, 0, 0, false);
-    compute_pid_motor(3, 0, 0, false);
-  }
-  else if (!(track_val[0] < thredhold) && !(track_val[1]  < thredhold) && !(track_val[2] < thredhold) && !(track_val[3] < thredhold)) {
-    Serial.println("clean");
-    compute_pid_motor(0, speed_track, 1, true);
-    compute_pid_motor(1, speed_track, 1, true);
-    compute_pid_motor(2, speed_track, 1, true);
-    compute_pid_motor(3, speed_track, 1, true);
+void toggle_slide() {
+  static bool toggle;
+  if (millis() - prev_time > 4000) {
 
+    prev_time = millis();
+    toggle = !toggle;
   }
-  else if (track_val[0] < thredhold && !(track_val[1]  < thredhold) && !(track_val[2] < thredhold) && !(track_val[3] < thredhold)) {
-    Serial.println("overright error");
-    last_track_state = 1;
-    compute_pid_motor(0, speed_track, -1, true);
-    compute_pid_motor(1, speed_track, 1, true);
-    compute_pid_motor(2, speed_track, -1, true);
-    compute_pid_motor(3, speed_track, 1, true);
-  }
-  else if (track_val[0] < thredhold && track_val[1]  < thredhold && !(track_val[2] < thredhold) && !(track_val[3] < thredhold)) {
-    Serial.println("farly right error");
-    last_track_state = 2;
-    compute_pid_motor(0, 0, 0, false);
-    compute_pid_motor(1, speed_track, 1, true);
-    compute_pid_motor(2, 0, 0, false);
-    compute_pid_motor(3, speed_track, 1, true);
-  }
-  else if (!(track_val[0] < thredhold) && track_val[1]  < thredhold && !(track_val[2] < thredhold) && !(track_val[3] < thredhold)) {
-    Serial.println("right error");
-    last_track_state = 3;
-    compute_pid_motor(0, speed_track - 10, 1, true);
-    compute_pid_motor(1, speed_track, 1, true);
-    compute_pid_motor(2, speed_track - 10, 1, true);
-    compute_pid_motor(3, speed_track, 1, true);
-  }
-
-  else if (!(track_val[0] < thredhold) && !(track_val[1] < thredhold ) && !(track_val[2] < thredhold ) && track_val[3] < thredhold) {
-    Serial.println("overleft erorr");
-    last_track_state = 4;
-    compute_pid_motor(0, speed_track, 1, true);
-    compute_pid_motor(1, speed_track, -1, true);
-    compute_pid_motor(2, speed_track, 1, true);
-    compute_pid_motor(3, speed_track, -1, true);
-  }
-  else if (!(track_val[0] < thredhold ) && !(track_val[1]  < thredhold ) && track_val[2] < thredhold && track_val[3] < thredhold) {
-    Serial.println("farly left error");
-    last_track_state = 5;
-    compute_pid_motor(0, speed_track, 1, true);
-    compute_pid_motor(1, 0, 0, false);
-    compute_pid_motor(2, speed_track, 1, true);
-    compute_pid_motor(3, 0, 0, false);
-  }
-  else if (!(track_val[0] < thredhold) && !(track_val[1]  < thredhold ) && track_val[2] < thredhold && !(track_val[3] < thredhold)) {
-    Serial.println("left error");
-    last_track_state = 6;
-    compute_pid_motor(0, speed_track, 1, true);
-    compute_pid_motor(1, speed_track - 10, 1, true);
-    compute_pid_motor(2, speed_track, 1, true);
-    compute_pid_motor(3, speed_track - 10, 0, true);
+  if (toggle) {
+    fixed_slide(60, 1);
   }
   else {
-    Serial.println("Else");
-    if (last_track_state == 1) {
-      compute_pid_motor(0, speed_track, -1, true);
-      compute_pid_motor(1, speed_track, 1, true);
-      compute_pid_motor(2, speed_track, -1, true);
-      compute_pid_motor(3, speed_track, 1, true);
-    }
-    else if (last_track_state == 2) {
-      compute_pid_motor(0, 0, 0, false);
-      compute_pid_motor(1, speed_track, 1, true);
-      compute_pid_motor(2, 0, 0, false);
-      compute_pid_motor(3, speed_track, 1, true);
-    }
-    else if (last_track_state == 3) {
-      compute_pid_motor(0, speed_track - 10, 1, true);
-      compute_pid_motor(1, speed_track, 1, true);
-      compute_pid_motor(2, speed_track - 10, 1, true);
-      compute_pid_motor(3, speed_track, 1, true);
-    }
-    else if (last_track_state == 4) {
-      compute_pid_motor(0, speed_track, 1, true);
-      compute_pid_motor(1, speed_track, -1, true);
-      compute_pid_motor(2, speed_track, 1, true);
-      compute_pid_motor(3, speed_track, -1, true);
-    }
-    else if (last_track_state == 5) {
-      compute_pid_motor(0, speed_track, 1, true);
-      compute_pid_motor(1, 0, 0, false);
-      compute_pid_motor(2, speed_track, 1, true);
-      compute_pid_motor(3, 0, 0, false);
-
-    }
-    else if (last_track_state == 6) {
-      last_track_state = 6;
-      compute_pid_motor(0, speed_track, 1, true);
-      compute_pid_motor(1, speed_track - 10, 1, true);
-      compute_pid_motor(2, speed_track, 1, true);
-      compute_pid_motor(3, speed_track - 10, 0, true);
-    }
-    //    compute_pid_motor(0, 30, 1);
-    //    compute_pid_motor(1, 30, 1);
-    //    compute_pid_motor(2, 30, 1);
-    //    compute_pid_motor(3, 30, 1);
+    fixed_slide(60, -1);
   }
-  Serial.println();
-
 }
 
-
 void wait_speed_control() {
+  Serial.println("dic");
   for (int i = 0; i < 4 ; i++) {
     compute_pid_motor(i , 0, 0, false);
   }
@@ -489,12 +344,12 @@ void fixed_axes(int fixed_speed) {
   int output = fixed_kp * fixed_error + fixed_ki * fixed_integral * fixed_dt + fixed_kd * fixed_derivative / fixed_dt;
 
 
-  Serial.print("Heading: ");
-  Serial.print(IMU_raw_val);
-  Serial.print(", Error: ");
-  Serial.print(fixed_error);
-  Serial.print(", output: ");
-  Serial.println(output);
+  //  Serial.print("Heading: ");
+  //  Serial.print(IMU_raw_val);
+  //  Serial.print(", Error: ");
+  //  Serial.print(fixed_error);
+  //  Serial.print(", output: ");
+  //  Serial.println(output);
 
   motor_speed = abs(output);
   motor_speed = constrain(motor_speed, 0, fixed_speed);
@@ -519,6 +374,67 @@ void fixed_axes(int fixed_speed) {
   fixed_last_time = fixed_current_time;
 }
 
+//fixed slide
+void fixed_slide(int fixed_speed , int dir) {
+  static unsigned long FIFO_DelayTimer;
+  if ((millis() - FIFO_DelayTimer) >= (99)) { // 99ms instead of 100ms to start polling the MPU 1ms prior to data arriving.
+    if ( mpu.dmp_read_fifo(false)) FIFO_DelayTimer = millis() ; // false = no interrupt pin attachment required and When data arrives in the FIFO Buffer reset the timer
+  }
+
+  fixed_error = fixed_setpoint - IMU_raw_val;
+  fixed_integral += fixed_error;
+  fixed_derivative = fixed_error - fixed_last_error;
+
+
+  // Calculate motor speeds using PID control
+  int output = fixed_kp * fixed_error + fixed_ki * fixed_integral * fixed_dt + fixed_kd * fixed_derivative / fixed_dt;
+
+
+  Serial.print("Heading: ");
+  Serial.print(IMU_raw_val);
+  Serial.print(", Error: ");
+  Serial.print(fixed_error);
+  Serial.print(", output: ");
+  Serial.println(output);
+
+  motor_speed = abs(output);
+  motor_speed = constrain(motor_speed, 0, fixed_speed);
+
+  if (dir == -1) {
+    if (output < 0) {
+      compute_pid_motor(0, speed_track , -1, true);
+      compute_pid_motor(1, speed_track , 1, true);
+      compute_pid_motor(2, speed_track - motor_speed, 1, true);
+      compute_pid_motor(3, speed_track , -1, true);
+    } else {
+      compute_pid_motor(0, speed_track - motor_speed, -1, true);
+      compute_pid_motor(1, speed_track , 1, true);
+      compute_pid_motor(2, speed_track , 1, true);
+      compute_pid_motor(3, speed_track , -1, true);
+    }
+  }
+
+  else if (dir == 1) {
+    if (output < 0) {
+      compute_pid_motor(0, speed_track , 1, true);
+      compute_pid_motor(1, speed_track - motor_speed, -1, true);
+      compute_pid_motor(2, speed_track , -1, true);
+      compute_pid_motor(3, speed_track , 1, true);
+    } else {
+      compute_pid_motor(0, speed_track , 1, true);
+      compute_pid_motor(1, speed_track , -1, true);
+      compute_pid_motor(2, speed_track , -1, true);
+      compute_pid_motor(3, speed_track - motor_speed, 1, true);
+    }
+  }
+
+
+  fixed_current_time = millis();
+  fixed_dt = (fixed_current_time - fixed_last_time) / 1000.0;
+  fixed_last_error = fixed_error;
+  // Store the current time as the last time
+  fixed_last_time = fixed_current_time;
+}
 
 
 // pid heading control
@@ -723,16 +639,75 @@ void cross_bridge() {
 }
 
 
-double get_distance_avg() {
-  int rdistance;
-  for (int i = 0 ; i < 4 ; i++) {
-    rdistance += distance_cnt[i];
-  }
-  rdistance = rdistance / 4;
-  return rdistance;
+int get_distance() {
+  return (distance_cnt[2] + distance_cnt[3]) / 2;
 }
 
 
-int get_distance() {
-  return (distance_cnt[2] + distance_cnt[3]) / 2;
+void plan_robot(int setpoint) {
+  IMU_setpoint = setpoint;
+  while (1) {
+    Serial.println("planState : ");
+    Serial.print(state);
+    compute_pid_heading();
+    if (abs(IMU_error) < 1.0)
+      break;
+  }
+}
+
+void run_robot(int dis , int angle) {
+  distance_setpoint = dis;
+  fixed_setpoint = angle;
+  distance_cnt[2] = 0;
+  distance_cnt[3] = 0;
+  while (1) {
+    Serial.println("runState : " + String(get_distance()));
+    Serial.print(String(state));
+    //    Serial.println("run robot: " + String(get_distance()));
+    fixed_axes(60);
+    if (abs(distance_setpoint - get_distance()) < 20) {
+      break;
+    }
+  }
+}
+
+void run_slide_robot(int dis , int angle, int dir) {
+  distance_setpoint = dis;
+  fixed_setpoint = angle;
+  distance_cnt[2] = 0;
+  distance_cnt[3] = 0;
+  while (1) {
+    Serial.println("slide run robot: " + String(get_distance()));
+    fixed_slide(60, dir);
+    if (abs(distance_setpoint - get_distance()) < 20) {
+      break;
+    }
+  }
+}
+
+void pick_obj(unsigned long prev) {
+  Serial.println("a");
+
+  while (1) {
+    wait_speed_control();
+    //    Serial.println("a");
+    if (millis() - prev < 1200) {
+      Serial.println("if1");
+      joint.write(180);
+    }
+    else if (millis() - prev < 1800) {
+      Serial.println("if2");
+      gripper.write(100);
+    }
+    else if (millis() - prev < 3500) {
+      Serial.println("if3");
+      joint.write(0);
+    }
+    else {
+      Serial.println("else");
+      gripper.write(15);
+      break;
+    }
+
+  }
 }

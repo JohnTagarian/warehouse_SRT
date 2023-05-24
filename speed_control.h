@@ -103,6 +103,8 @@ void compute_pid_motor(int index, int target , int dir, bool enable) {
 // ISR section
 void updateEncoder_Q() {
   //  dir[0] = digitalRead(encoderPinB[0]);
+
+  //  Serial.println("1--------------------------------");
   encoderCount[0]++;
   distance_cnt[0]++;
 
@@ -110,6 +112,7 @@ void updateEncoder_Q() {
 
 void updateEncoder_E()
 {
+  //  Serial.println("2--------------------------------");
   //  dir[1] = digitalRead(encoderPinB[1]);
   encoderCount[1]++;
   distance_cnt[1]++;
@@ -117,12 +120,15 @@ void updateEncoder_E()
 }
 void updateEncoder_A()
 {
+  //  Serial.println("3--------------------------------");
   //  dir[2] = digitalRead(encoderPinB[2]);
   encoderCount[2]++;
   distance_cnt[2]++;
 }
 void updateEncoder_D()
 {
+
+  //  Serial.println("4--------------------------------");
   //  dir[3] = digitalRead(encoderPinB[3]);
   encoderCount[3]++;
   distance_cnt[3]++;
