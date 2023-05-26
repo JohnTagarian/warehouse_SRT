@@ -8,7 +8,7 @@
 #define STBTN A15
 
 
-int track_ir[] = {A3, A2, A1, A0};
+int track_ir[] = {A0, A8, A7, A3};
 int track_val[] = {0, 0, 1023, 0, 0};
 int track_filter_val[] = {0, 0, 0, 0, 0};
 int filterFactor = 10;
@@ -46,7 +46,7 @@ bool cnt_state = false;
 unsigned long pretime_cnt;
 
 unsigned long prev_time;
-int sensorThreshold = 670;
+int sensorThreshold = 720;
 
 
 Servo gripper;
@@ -62,7 +62,7 @@ void setup() {
   pinMode(STBTN, INPUT_PULLUP);
   gripper.attach(GRIPPER_PIN);
   joint.attach(JOINT_PIN);
-  gripper.write(15);
+  gripper.write(60);
   joint.write(0);
 
 
@@ -119,6 +119,9 @@ void setup() {
 
 
 
+
+
+
 }
 
 double distance;
@@ -130,14 +133,19 @@ int distance_setpoint;
 
 void loop() {
 
-
   //  prev_time = millis();
+  //  while (millis() - prev_time < 1000) {
+  //    fixed_axes(60);
+  //  }
+  //
+  //  prev_time = millis();
+  //  pick_obj(prev_time);
+  //  while (1);
   //  Serial.println("PICK");
   //  pick_obj(prev_time);
   //
   //  prev_time = millis();
   //  while (millis() - prev_time < 3000) {
-  Serial.println();
   //      compute_pid_motor(0, speed_track , 1, true);
   //      compute_pid_motor(1, speed_track, 1, true);
   //      compute_pid_motor(2, speed_track, 1, true);
@@ -180,14 +188,14 @@ void loop() {
   //  }
   //  Serial.print(String(track_val[0]) + "," + String(track_val[1]) + "," + String(track_val[2]) + "," + String(track_val[3]));
 
-
+  //  Serial.println(String(analogRead(track_ir[1])) + String(" ") + String(analogRead(track_ir[2])));
 
 
 
 
   switch (state) {
     case '1':
-      Serial.println("state 1");
+      Serial.println ("state 1");
       IMU_setpoint = 0;
       cross_bridge();
       if (check_bridge)state = '2';
@@ -206,7 +214,7 @@ void loop() {
     case '3':
       Serial.println("state 3");
 
-      plan_robot(93);
+      plan_robot(90);
       run_robot(1550, 90);
 
       state = '4';
@@ -225,54 +233,112 @@ void loop() {
     case '5':
       Serial.println("state 5----------------------");
       plan_robot(90);
-      run_robot(700, 90);
+      int val1, val2;
+      prev_time = millis();
+      while (millis() - prev_time < 1000) {
+        wait_speed_control();
+        val1 = analogRead(track_ir[1]);
+        val2 = analogRead(track_ir[2]);
+        //        val1 = 500;
+        //        val2 = 800;
+
+      }
+      check_center(val1, val2);
+      joint.write(180);
+
+      run_robot(1000, 90);
+      prev_time = millis();
+      pick_obj(prev_time);
       state = '6';
       break;
 
     case '6':
       Serial.println("state 6");
+      run_slide_robot(600, 90, 1);
 
-      run_slide_robot(600, 94, 1);
       prev_time = millis();
-      while (millis() - prev_time < 2000) {
+      while (millis() - prev_time < 1000) {
         wait_speed_control();
+        val1 = analogRead(track_ir[1]);
+        val2 = analogRead(track_ir[2]);
+        //        val1 = 500;
+        //        val2 = 800;
+
       }
 
-      run_slide_robot(600, 94, 1);
+      check_center(val1, val2);
+      joint.write(180);
       prev_time = millis();
-      while (millis() - prev_time < 2000) {
+      while (millis() - prev_time < 200) {
         wait_speed_control();
       }
+      run_robot(800, 90);
+      prev_time = millis();
+      pick_obj(prev_time);
 
-      run_slide_robot(600, 94, 1);
-      prev_time = millis();
-      while (millis() - prev_time < 2000) {
-        wait_speed_control();
-      }
+      //      wait_speed_control();
 
-      run_slide_robot(600, 94, 1);
-      prev_time = millis();
-      while (millis() - prev_time < 2000) {
-        wait_speed_control();
-      }
+      //      prev_time = millis();
+      //      while (millis() - prev_time < 2000) {
+      //        wait_speed_control();
+      //      }
+      //
+      //      run_slide_robot(600, 90, 1);
+      //
+      //      while (millis() - prev_time < 1000) {
+      //        wait_speed_control();
+      //        val1 = analogRead(track_ir[1]);
+      //        val2 = analogRead(track_ir[2]);
+      //
+      //      }
+      //      check_center(val1, val2);
+      //      prev_time = millis();
+      //      while (millis() - prev_time < 2000) {
+      //        wait_speed_control();
+      //      }
+      //
+      //      run_slide_robot(600, 90, 1);
+      //
+      //      prev_time = millis();
+      //      while (millis() - prev_time < 2000) {
+      //        wait_speed_control();
+      //      }
 
-      run_slide_robot(600, 94, 1);
-      prev_time = millis();
-      while (millis() - prev_time < 2000) {
-        wait_speed_control();
-      }
 
-      run_slide_robot(600, 94, 1);
-      prev_time = millis();
-      while (millis() - prev_time < 2000) {
-        wait_speed_control();
-      }
+      //      prev_time = millis();
+      //      while (millis() - prev_time < 2000) {
+      //        wait_speed_control();
+      //      }
 
-      run_slide_robot(600, 94, 1);
-      prev_time = millis();
-      while (millis() - prev_time < 2000) {
-        wait_speed_control();
-      }
+      //      run_slide_robot(600, 90, 1);
+      //      prev_time = millis();
+      //      while (millis() - prev_time < 2000) {
+      //        wait_speed_control();
+      //      }
+      //
+      //      run_slide_robot(600, 90, 1);
+      //      prev_time = millis();
+      //      while (millis() - prev_time < 2000) {
+      //        wait_speed_control();
+      //      }
+      //
+      //      run_slide_robot(600, 90, 1);
+      //      prev_time = millis();
+      //      while (millis() - prev_time < 2000) {
+      //        wait_speed_control();
+      //      }
+      //
+      //      run_slide_robot(600, 90, 1);
+      //      prev_time = millis();
+      //      while (millis() - prev_time < 2000) {
+      //        wait_speed_control();
+      //      }
+      //
+      //      run_slide_robot(600, 90, 1);
+      //      prev_time = millis();
+      //      while (millis() - prev_time < 2000) {
+      //        wait_speed_control();
+      //      }
       state = '7';
       break;
 
@@ -305,6 +371,34 @@ void loop() {
 
 
 // pid line track
+
+
+void track_slide() {
+  int raw_value1 = analogRead(track_ir[0]) ;
+  int raw_value2 = analogRead(track_ir[1]) + 100;
+  int raw_value3 = analogRead(track_ir[2]) + 100;
+  int raw_value4 = analogRead(track_ir[3]) - 210;
+
+  track_val[0] = (track_val[0] * (filterFactor - 1) + raw_value1) / filterFactor;
+  track_val[1] = (track_val[1] * (filterFactor - 1) + raw_value2) / filterFactor;
+  track_val[3] = (track_val[3] * (filterFactor - 1) + raw_value3) / filterFactor;
+  track_val[4] = (track_val[4] * (filterFactor - 1) + raw_value4) / filterFactor;
+
+  Serial.print(String(track_val[0]) + "," + String(track_val[1]) + "," + String(track_val[2]) + "," + String(raw_value4) + " : ");
+  if ((raw_value1 < sensorThreshold) && (raw_value2 < sensorThreshold) && (raw_value3 > sensorThreshold) && (raw_value4 > sensorThreshold)) {
+    Serial.println("if1");
+    fixed_slide(60, 1);
+  }
+  if ((raw_value1 > sensorThreshold) && (raw_value2 > sensorThreshold) && (raw_value3 < sensorThreshold) && (raw_value4 < sensorThreshold)) {
+    Serial.println("if2");
+    fixed_slide(60, -1);
+  }
+  else {
+    Serial.println("else");
+
+    fixed_axes(60);
+  }
+}
 
 void toggle_slide() {
   static bool toggle;
@@ -353,6 +447,7 @@ void fixed_axes(int fixed_speed) {
 
   motor_speed = abs(output);
   motor_speed = constrain(motor_speed, 0, fixed_speed);
+
   if (output < 0) {
     //    Serial.println("Motor speed 1 : " + String(motor_speed));
     compute_pid_motor(0, fixed_speed - motor_speed, 1, true);
@@ -502,10 +597,10 @@ void compute_pid_heading() {
 
 void pid_track() {
 
-  int raw_value1 = analogRead(track_ir[0]) - 200;
-  int raw_value2 = analogRead(track_ir[1]) ;
-  int raw_value3 = analogRead(track_ir[2]) ;
-  int raw_value4 = analogRead(track_ir[3]) ;
+  int raw_value1 = analogRead(track_ir[0]) ;
+  int raw_value2 = analogRead(track_ir[1]) + 100;
+  int raw_value3 = analogRead(track_ir[2]) + 100;
+  int raw_value4 = analogRead(track_ir[3]) - 210;
 
   track_val[0] = (track_val[0] * (filterFactor - 1) + raw_value1) / filterFactor;
   track_val[1] = (track_val[1] * (filterFactor - 1) + raw_value2) / filterFactor;
@@ -691,6 +786,13 @@ void pick_obj(unsigned long prev) {
   while (1) {
     wait_speed_control();
     //    Serial.println("a");
+    while ((millis() - prev > 1800) && (millis() - prev < 2500)) {
+      Serial.println("Back");
+      compute_pid_motor(0, speed_track , -1, true);
+      compute_pid_motor(1, speed_track, -1, true);
+      compute_pid_motor(2, speed_track, -1, true);
+      compute_pid_motor(3, speed_track , -1, true);
+    }
     if (millis() - prev < 1200) {
       Serial.println("if1");
       joint.write(180);
@@ -699,7 +801,7 @@ void pick_obj(unsigned long prev) {
       Serial.println("if2");
       gripper.write(100);
     }
-    else if (millis() - prev < 3500) {
+    else if (millis() - prev < 4000) {
       Serial.println("if3");
       joint.write(0);
     }
@@ -709,5 +811,22 @@ void pick_obj(unsigned long prev) {
       break;
     }
 
+  }
+}
+
+void check_center(int val1 , int val2) {
+  if ((val1 < 600) && (val2 > 600)) {
+    prev_time = millis();
+    while (millis() - prev_time < 200) {
+      Serial.println("----------------------------------------------------------------------------------------------");
+      fixed_slide(60, -1);
+    }
+  }
+  else if ((val1 > 600) && (val2 < 600)) {
+    prev_time = millis();
+    while (millis() - prev_time < 200) {
+      Serial.println("----------------------------------------------------------------------------------------------");
+      fixed_slide(60, 1);
+    }
   }
 }
