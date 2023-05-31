@@ -1,11 +1,22 @@
 #include "IMU.h"
 #include "speed_control.h"
+#include "stepper.h"
 #include <Servo.h>
 
 
 #define GRIPPER_PIN 9
 #define JOINT_PIN 8
 #define STBTN A15
+#define STORER_PIN 10
+#define HOME_PIN A13
+#define PUSH_SERVO 13
+
+#define FLAG_PIN 22
+#define MODE_PIN 23
+#define G_LED 24
+#define Y_LED 27
+#define R_LED 25
+
 
 
 int track_ir[] = {A0, A8, A7, A3};
@@ -49,25 +60,51 @@ unsigned long prev_time;
 int sensorThreshold = 720;
 
 
+char inchar;
+
+
 Servo gripper;
 Servo joint;
+Servo storer;
+Servo pusher;
 
-int val1, val2;
+int val0, val1, val2, val3;
 
 
 void setup() {
   Serial.begin(115200);
+  Serial3.begin(115200);
   while (!Serial); // wait for Leonardo enumeration, others continue immediately
+
+  pinMode(STEP_PIN, OUTPUT);
+  pinMode(DIR_PIN, OUTPUT);
+  pinMode(G_LED, OUTPUT);
+  pinMode(Y_LED, OUTPUT);
+  pinMode(R_LED, OUTPUT);
+
+  digitalWrite(G_LED, LOW);
+  digitalWrite(Y_LED, LOW);
+  digitalWrite(R_LED, LOW);
+
 
   pinMode(ir_left, INPUT_PULLUP);
   pinMode(ir_right, INPUT_PULLUP);
   pinMode(STBTN, INPUT_PULLUP);
+  pinMode(HOME_PIN, INPUT_PULLUP);
+  pinMode(FLAG_PIN, INPUT_PULLUP);
+  pinMode(MODE_PIN, INPUT_PULLUP);
+
   gripper.attach(GRIPPER_PIN);
   joint.attach(JOINT_PIN);
+  storer.attach(STORER_PIN);
+  pusher.attach(PUSH_SERVO);
   gripper.write(60);
   joint.write(0);
-
-
+  storer.write(180);
+  pusher.write(0);
+  //
+  //  while (analogRead(HOME_PIN) > 500) drive_step(HIGH, 300, 1);
+  //
   for (int i = 0 ; i < 4 ; i++) {
 
     pinMode(ENA[i], OUTPUT);
@@ -83,13 +120,13 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(encoderPinA[1]), updateEncoder_E, RISING);
   attachInterrupt(digitalPinToInterrupt(encoderPinA[2]), updateEncoder_A, RISING);
   attachInterrupt(digitalPinToInterrupt(encoderPinA[3]), updateEncoder_D, RISING);
-
-  Serial.println(F("Start:"));
-
-
-
-  // Setup the MPU and TwoWire aka Wire library all at once
-
+  //
+  //  Serial.println(F("Start:"));
+  //
+  //
+  //
+  //  // Setup the MPU and TwoWire aka Wire library all at once
+  //
   mpu.begin();
   mpu.Set_DMP_Output_Rate_Hz(100);          // Set the DMP output rate from 200Hz to 5 Minutes.
   //  mpu.Set_DMP_Output_Rate_Seconds(10);   // Set the DMP output rate in Seconds
@@ -98,12 +135,16 @@ void setup() {
   mpu.load_DMP_Image();                    // Loads the DMP image into the MPU and finish configuration.
   mpu.on_FIFO(Print_Values);               // Set callback function that is triggered when FIFO Data is retrieved
 
+  digitalWrite(G_LED, LOW);
+  digitalWrite(Y_LED, LOW);
+  digitalWrite(R_LED, HIGH);
   //  while (millis() < 30000) {
   //    call_IMU();
   //    //    Serial.println(yaw_value);
   //  }
 
   while (1) {
+    Serial.println("ST");
     //    Serial.println(digitalRead(STBTN));
     //    wait_speed_control();
     call_IMU();
@@ -113,9 +154,10 @@ void setup() {
     }
 
   }
+  digitalWrite(R_LED, LOW);
   //    delay(2/000);
   init_time = millis();
-  Serial.println("PICK");
+
   //  prev_time = millis();
   //  pick_obj(prev_time);
 
@@ -133,7 +175,13 @@ int fil_wing_val;
 bool check_bridge;
 int distance_setpoint;
 
+
 void loop() {
+
+  //  Serial.println(String(digitalRead(G_LED)) + String(digitalRead(R_LED)) + String(digitalRead(Y_LED)));
+  //  Serial.println(digitalRead(FLAG_PIN));
+
+  //  Serial.println(inchar);
 
   //  prev_time = millis();
   //  while (millis() - prev_time < 1000) {
@@ -148,91 +196,90 @@ void loop() {
   //
   //  prev_time = millis();
   //  while (millis() - prev_time < 3000) {
-  //      compute_pid_motor(0, speed_track , 1, true);
-  //      compute_pid_motor(1, speed_track, 1, true);
-  //      compute_pid_motor(2, speed_track, 1, true);
-  //      compute_pid_motor(3, speed_track , 1, true);
+  //  compute_pid_motor(0, speed_track , 1, true);
+  //    compute_pid_motor(1, speed_track, 1, true);
+  //  compute_pid_motor(2, speed_track, 1, true);
+  //  compute_pid_motor(3, speed_track , 1, true);
   //  }
 
-
-  switch (state) {
-    case '1':
-      Serial.println ("state 1");
-      IMU_setpoint = 0;
-      cross_bridge();
-      if (check_bridge)state = '2';
-      distance_cnt[2] = 0;
-      distance_cnt[3] = 0;
-      break;
-    case '2':
-      Serial.println("state 2 :" + String(get_distance()));
-      distance_setpoint = 1600;
-      fixed_axes(60);
-      if (abs(distance_setpoint - get_distance()) < 20) {
-        state = '3';
-      }
-      break;
-
-    case '3':
-      Serial.println("state 3");
-
-      plan_robot(90);
-      run_robot(1550, 90);
-
-      state = '4';
-      break;
-
-    case '4':
-      Serial.println("state 4");
-      plan_robot(0);
-      run_robot(1850, 0);
-
-      state = '5';
-      break;
-
-
-    case '5':
-      Serial.println("state 5----------------------");
-      plan_robot(90);
-      prev_time = millis();
-      read_center();
-      check_center(val1, val2);
-      joint.write(180);
-
-      run_robot(1000, 90);
-      prev_time = millis();
-      pick_obj(prev_time);
-      state = '6';
-      break;
-
-    case '6':
-      Serial.println("state 6");
-      run_slide_robot(600, 90, 1);
-      read_center();
-      check_center(val1, val2);
-      joint.write(180);
-
-      delay_robot(200);
-      run_robot(800, 90);
-
-      prev_time = millis();
-      pick_obj(prev_time);
-
-      state = '7';
-      break;
-
-    case '7':
-      Serial.println("state 7");
-      wait_speed_control();
-
-      break;
-
-    case '8':
-      Serial.println("state 8");
-      wait_speed_control();
-      break;
-
-  }
+  //  switch (state) {
+  //    case '1':
+  //      Serial.println ("state 1");
+  //      IMU_setpoint = 0;
+  //      cross_bridge();
+  //      if (check_bridge)state = '2';
+  //      distance_cnt[2] = 0;
+  //      distance_cnt[3] = 0;
+  //      break;
+  //    case '2':
+  //      Serial.println("state 2 :" + String(get_distance()));
+  //      distance_setpoint = 1600;
+  //      fixed_axes(90);
+  //      if (abs(distance_setpoint - get_distance()) < 20) {
+  //        state = '3';
+  //      }
+  //      break;
+  //
+  //    case '3':
+  //      Serial.println("state 3");
+  //
+  //      plan_robot(90);
+  //      run_robot(1550, 90);
+  //
+  //      state = '4';
+  //      break;
+  //
+  //    case '4':
+  //      Serial.println("state 4");
+  //      plan_robot(0);
+  //      run_robot(1850, 0);
+  //
+  //      state = '5';
+  //      break;
+  //
+  //
+  //    case '5':
+  //      Serial.println("state 5----------------------");
+  //      plan_robot(90);
+  //      prev_time = millis();
+  //      read_center();
+  //      check_center(val1, val2);
+  //      joint.write(180);
+  //      run_robot(1000, 90);
+  //      prev_time = millis();
+  //      pick_obj(prev_time, 0);
+  //      state = '6';
+  //      break;
+  //
+  //    case '6':
+  //      Serial.println("state 6");
+  //      for (int i = 0 ; i < 7 ; i++) {
+  //        run_slide_robot(600, 92, 1);
+  //        read_center();
+  //        check_center(val1, val2);
+  //        joint.write(180);
+  //        delay_robot(200);
+  //        run_robot(800, 90);
+  //        prev_time = millis();
+  //        pick_obj(prev_time, i + 1);
+  //        plan_robot(92);
+  //      }
+  //
+  //      state = '7';
+  //      break;
+  //
+  //    case '7':
+  //      Serial.println("state 7");
+  //      wait_speed_control();
+  //
+  //      break;
+  //
+  //    case '8':
+  //      Serial.println("state 8");
+  //      wait_speed_control();
+  //      break;
+  //
+  //  }
 
 
 }
@@ -264,7 +311,7 @@ void track_slide() {
   else {
     Serial.println("else");
 
-    fixed_axes(60);
+    fixed_axes(90);
   }
 }
 
@@ -284,7 +331,7 @@ void toggle_slide() {
 }
 
 void wait_speed_control() {
-  Serial.println("dic");
+  //  Serial.println("dic");
   for (int i = 0; i < 4 ; i++) {
     compute_pid_motor(i , 0, 0, false);
   }
@@ -627,7 +674,7 @@ void run_robot(int dis , int angle) {
     Serial.println("runState : " + String(get_distance()));
     Serial.print(String(state));
     //    Serial.println("run robot: " + String(get_distance()));
-    fixed_axes(60);
+    fixed_axes(90);
     if (abs(distance_setpoint - get_distance()) < 20) {
       break;
     }
@@ -641,25 +688,39 @@ void run_slide_robot(int dis , int angle, int dir) {
   distance_cnt[3] = 0;
   while (1) {
     Serial.println("slide run robot: " + String(get_distance()));
-    fixed_slide(60, dir);
+    fixed_slide(100, dir);
     if (abs(distance_setpoint - get_distance()) < 20) {
       break;
     }
   }
 }
 
-void pick_obj(unsigned long prev) {
-  Serial.println("a");
 
+unsigned long contime;
+char old_color = '0';
+
+void pick_obj(unsigned long prev , int index) {
+  Serial.println("pick object");
+  distance_cnt[2] = 0;
+  distance_cnt[3] = 0;
+
+  distance_setpoint = 600;
   while (1) {
+    Serial.println("99999999999999999");
     wait_speed_control();
     //    Serial.println("a");
     while ((millis() - prev > 1800) && (millis() - prev < 2500)) {
-      Serial.println("Back");
-      compute_pid_motor(0, speed_track , -1, true);
-      compute_pid_motor(1, speed_track, -1, true);
-      compute_pid_motor(2, speed_track, -1, true);
-      compute_pid_motor(3, speed_track , -1, true);
+      wait_speed_control();
+      //      while (1) {
+      //        Serial.println("Back");
+      //        compute_pid_motor(0, speed_track , -1, true);
+      //        compute_pid_motor(1, speed_track, -1, true);
+      //        compute_pid_motor(2, speed_track, -1, true);
+      //        compute_pid_motor(3, speed_track , -1, true);
+      //        if (abs(distance_setpoint - get_distance()) < 20) {
+      //          break;
+      //        }
+      //      }
     }
     if (millis() - prev < 1200) {
       Serial.println("if1");
@@ -669,42 +730,102 @@ void pick_obj(unsigned long prev) {
       Serial.println("if2");
       gripper.write(100);
     }
-    else if (millis() - prev < 4000) {
+    else if (millis() - prev < 3500) {
       Serial.println("if3");
       joint.write(0);
     }
+    else if (millis() - prev < 4800) {
+      Serial.println("if4");
+      gripper.write(60);
+      joint.write(90);
+      storer.write(50);
+
+      //      static unsigned long prev_time_servo;
+      //      int i;
+      while (1) {
+        //        if (millis() - prev_time_servo > 200) {
+        //          if (i < 130)i++;
+        //          storer.write(50 + i);
+        //        }
+        wait_speed_control();
+        if (Serial3.available() > 0)
+        {
+          inchar = Serial3.read();
+        }
+        Serial.print("IN : ");
+        Serial.print(inchar);
+        Serial.print("   ");
+
+        Serial.print(pick[0]);
+        Serial.print(" ");
+
+        Serial.print(pick[1]);
+        Serial.print(" ");
+
+        Serial.print(pick[2]);
+        Serial.print(" ");
+
+        Serial.print(pick[3]);
+        Serial.print(" ");
+
+        Serial.print(pick[4]);
+        Serial.print(" ");
+
+        Serial.print(pick[5]);
+        Serial.print(" ");
+
+        Serial.print(pick[6]);
+        Serial.print(" ");
+
+
+        Serial.print(pick[7]);
+        Serial.println(" ");
+        if (inchar != '1') {
+          pick[index] = inchar;
+          contime = millis();
+          break;
+        }
+
+      }
+      while (1)Serial.println("T");
+
+    }
+    else if (millis() - contime < 500) {
+      Serial.println("Stored");
+      storer.write(0);
+    }
+    else if (millis() - contime < 1000) {
+      Serial.println("un stored");
+      storer.write(180);
+    }
     else {
-      Serial.println("else");
-      gripper.write(15);
+      Serial.println("=============================================");
+      drive_step(HIGH, 100, 800);
       break;
     }
-
   }
+
 }
 
 void check_center(int val1 , int val2) {
-  if ((val1 < 600) && (val2 > 600)) {
-    prev_time = millis();
-    while (millis() - prev_time < 200) {
-      Serial.println("----------------------------------------------------------------------------------------------");
-      fixed_slide(60, -1);
-    }
+  if ((val1 < 610) && (val2 > 610)) {
+    run_slide_robot(100, 92, -1);
   }
-  else if ((val1 > 600) && (val2 < 600)) {
-    prev_time = millis();
-    while (millis() - prev_time < 200) {
-      Serial.println("----------------------------------------------------------------------------------------------");
-      fixed_slide(60, 1);
-    }
+  else if ((val1 > 610) && (val2 < 610)) {
+    run_slide_robot(100, 92, 1);
   }
+
 }
 
 void read_center() {
   prev_time = millis();
-  while (millis() - prev_time < 1000) {
+  while (millis() - prev_time < 1200) {
     wait_speed_control();
+    val0 = analogRead(track_ir[0]);
     val1 = analogRead(track_ir[1]);
     val2 = analogRead(track_ir[2]);
+    val3 = analogRead(track_ir[3]);
+    Serial.println(String(val0) + " " + String(val1) + " " + String(val2) + " " + String(val3));
   }
 }
 
@@ -714,4 +835,30 @@ void delay_robot(int Time) {
     wait_speed_control();
   }
 
+}
+
+unsigned long prev_time_step;
+void drive_step(bool direction, int speed, int steps) {
+  digitalWrite(DIR_PIN, direction);
+  int i = 0;
+  while (i < (steps * 2)) {
+    wait_speed_control();
+    if (micros() - prev_time_step > speed) {
+      prev_time_step = micros();
+      digitalWrite(STEP_PIN, !digitalRead(STEP_PIN));
+      i++;
+    }
+  }
+}
+
+unsigned long blink_time;
+int blink_state;
+void blinking(int pin) {
+  if (millis() - blink_time > 200) {
+    blink_time = millis();
+    Serial.println("-------------------------------------------");
+    blink_state = !blink_state;
+    digitalWrite(pin , blink_state);
+
+  }
 }
