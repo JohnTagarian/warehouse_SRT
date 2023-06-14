@@ -87,17 +87,17 @@ void compute_pid_motor(int index, int target , int dir, bool enable) {
   //  Serial.print(target);
   //  Serial.print(",");
   //  Serial.println(encoderSpeed[index]);
-  //  Serial.print(index);
-  //  Serial.print("\tSpeed : ");
-  //  Serial.print(encoderSpeed[index]);
-  //  Serial.print("\tCount :");
-  //  Serial.print(encoderCount[index]);
-  //  Serial.print("\tcountdiff : ");
-  //  Serial.print(countDiff);
-  //  Serial.print("\tDT : ");
-  //  Serial.print(deltaTime);
-  //  Serial.print("\tError : ");
-  //  Serial.println(error);
+//    Serial.print(index);
+//    Serial.print("\tSpeed : ");
+//    Serial.print(encoderSpeed[index]);
+//    Serial.print("\tCount :");
+//    Serial.print(encoderCount[index]);
+//    Serial.print("\tcountdiff : ");
+//    Serial.print(countDiff);
+//    Serial.print("\tDT : ");
+//    Serial.print(deltaTime);
+//    Serial.print("\tError : ");
+//    Serial.println(error);
 
 }
 // ISR section

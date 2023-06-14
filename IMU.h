@@ -1,6 +1,6 @@
 //#define interruptPin 19
 // non interupt pin set to 14
-#define OFFSETS   -604,    -218,     964,      26,      73,     -33
+#define OFFSETS   -624,    -226,     944,      49,      73,     -33
 
 #include "Simple_MPU6050.h"
 #define MPU6050_DEFAULT_ADDRESS     0x68 // address pin low (GND), default for InvenSense evaluation board
