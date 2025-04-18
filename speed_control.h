@@ -42,28 +42,28 @@ void compute_pid_motor(int index, int target , int dir, bool enable) {
     init_time = millis();
     check_time_init = true;
   }
-  unsigned long currentTime = millis() - init_time; // Line 36
+  unsigned long currentTime = millis() - init_time; 
   unsigned long deltaTime;
   if (!enable) deltaTime = 0;
-  else  deltaTime = currentTime - lastUpdateTime[index]; // Line 37
-  lastUpdateTime[index] = currentTime; // Line 38
+  else  deltaTime = currentTime - lastUpdateTime[index]; 
+  lastUpdateTime[index] = currentTime; 
 
-  long countDiff = encoderCount[index] - lastEncoderCount[index]; // Line 40
-  encoderSpeed[index] = countDiff * 60000 / (deltaTime * 510); // Line 41, RPM = (countDiff * 60 * 1000) / (deltaTime * PPR)
-  lastEncoderCount[index] = encoderCount[index]; // Line 42
+  long countDiff = encoderCount[index] - lastEncoderCount[index]; 
+  encoderSpeed[index] = countDiff * 60000 / (deltaTime * 510); 
+  lastEncoderCount[index] = encoderCount[index]; 
 
 
-  inputRPM[index] = encoderSpeed[index]; // Line 44
+  inputRPM[index] = encoderSpeed[index]; 
 
   // Compute the PID output value (PWM value for the motor)
-  float error = target - inputRPM[index]; // Line 47
-  integralError[index] += error * deltaTime; // Line 48
-  float derivativeError = (error - prevError[index]) / deltaTime; // Line 49
-  outputPWM[index] = Kp[index] * error + Ki[index] * integralError[index] + Kd[index] * derivativeError; // Line 51
+  float error = target - inputRPM[index]; 
+  integralError[index] += error * deltaTime; 
+  float derivativeError = (error - prevError[index]) / deltaTime; 
+  outputPWM[index] = Kp[index] * error + Ki[index] * integralError[index] + Kd[index] * derivativeError;
 
   // Update the previous error value
-  prevError[index] = error; // Line 53
-  outputPWM[index] = constrain(outputPWM[index], 0, 255); // Line 56
+  prevError[index] = error; 
+  outputPWM[index] = constrain(outputPWM[index], 0, 255);
 
 
   if (dir == 1) {
